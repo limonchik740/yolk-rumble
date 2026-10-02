@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yolk Rumble</title>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<section id="menu" class="screen">
+  <h1>Yolk<br>Rumble</h1>
+  <p class="tag">Grab eggs. Blast rivals. Be the last cluck standing.</p>
+  <div class="swatches" id="swatches"></div>
+  <button class="big" id="playSolo">Solo vs Bots</button>
+  <button class="big off" disabled>Online (coming soon)</button>
+  <p class="help"><b>WASD / Arrows</b> move &nbsp; <b>Space</b> jump &nbsp; <b>Click / F</b> fire egg blaster</p>
+</section>
+
+<div id="hud" class="hidden">
+  <div id="info"></div>
+  <div id="score"></div>
+  <div id="banner"></div>
+</div>
+
+<section id="over" class="screen hidden">
+  <h2 id="overTitle"></h2>
+  <ol id="board"></ol>
+  <button class="big" id="next">Next round</button>
+  <button class="small" id="toMenu">Main menu</button>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
