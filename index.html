@@ -16,13 +16,15 @@
   <div class="swatches" id="swatches"></div>
   <button class="big" id="playSolo">Solo vs Bots</button>
   <button class="big off" disabled>Online (coming soon)</button>
-  <p class="help"><b>WASD / Arrows</b> move &nbsp; <b>Space</b> jump &nbsp; <b>Click / F</b> fire egg blaster</p>
+  <p class="help"><b>Mouse</b> look &nbsp; <b>WASD</b> move &nbsp; <b>Shift</b> run &nbsp; <b>Space</b> jump &nbsp; <b>Click / F</b> fire egg blaster</p>
 </section>
 
 <div id="hud" class="hidden">
   <div id="info"></div>
   <div id="score"></div>
   <div id="banner"></div>
+  <div id="cross"></div>
+  <div id="hint">Click the game to look around (Esc frees your mouse)</div>
 </div>
 
 <section id="over" class="screen hidden">
@@ -33,6 +35,7 @@
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="farm.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
