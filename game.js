@@ -14,7 +14,7 @@ const FOX_DPS = 6, PLAYER_HP = 100;
 const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true });
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#bfe3ff'); scene.fog = new THREE.Fog('#cfe8f7', 70, 380);
-const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 700); camera.rotation.order = 'YXZ'; scene.add(camera);
+const camera = new THREE.PerspectiveCamera(74, 1, 0.1, 700); camera.rotation.order = 'YXZ'; scene.add(camera);
 scene.add(new THREE.HemisphereLight('#ffffff', '#6aa84f', 0.9));
 const sun = new THREE.DirectionalLight('#fff3c4', 0.8); sun.position.set(10, 20, 8); scene.add(sun);
 const mesh = (geo, c, x = 0, y = 0, z = 0, parent) => { const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: c, flatShading: true })); m.position.set(x, y, z); if (parent) parent.add(m); return m; };
@@ -28,6 +28,26 @@ function loadMap(i) {
   posts = m.build(mapGroup, R); scene.background.set(m.sky); scene.fog.color.set(m.fog);
 }
 
+// ---- obstacle helpers: obstacles are round {x,z,r,h} or boxes {x,z,hw,hd,h} ----
+function sep(o, x, z) {   // [direction away from the obstacle, distance from its surface (negative = inside)]
+  if (o.r !== undefined) { const dx = x - o.x, dz = z - o.z, l = Math.hypot(dx, dz) || .01; return [dx / l, dz / l, l - o.r]; }
+  const cx = Math.max(o.x - o.hw, Math.min(o.x + o.hw, x)), cz = Math.max(o.z - o.hd, Math.min(o.z + o.hd, z)), dx = x - cx, dz = z - cz, l = Math.hypot(dx, dz);
+  if (l > 1e-4) return [dx / l, dz / l, l];
+  const px = o.hw - Math.abs(x - o.x), pz = o.hd - Math.abs(z - o.z);
+  return px < pz ? [Math.sign(x - o.x) || 1, 0, -px] : [0, Math.sign(z - o.z) || 1, -pz];
+}
+const blocked = (x, z, pad) => posts.some(o => sep(o, x, z)[2] < pad);
+function rayObs(ob, o, d) {   // distance along the ray where it enters the obstacle (or -1)
+  if (ob.r !== undefined) { const ox = o[0] - ob.x, oz = o[2] - ob.z, A = d[0] * d[0] + d[2] * d[2], B = ox * d[0] + oz * d[2], D = B * B - A * (ox * ox + oz * oz - ob.r * ob.r); return A > 1e-6 && D >= 0 ? (-B - Math.sqrt(D)) / A : -1; }
+  let t0 = 0, t1 = 1e9;
+  for (const [oo, dd, c, h] of [[o[0], d[0], ob.x, ob.hw], [o[2], d[2], ob.z, ob.hd]]) {
+    if (Math.abs(dd) < 1e-6) { if (Math.abs(oo - c) > h) return -1; }
+    else { let a = (c - h - oo) / dd, b = (c + h - oo) / dd; if (a > b) [a, b] = [b, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return -1; }
+  }
+  return t0 > 0 ? t0 : -1;
+}
+const EYE = 1.5;
+
 // ---- first-person view model ----
 const view = new THREE.Group(); camera.add(view); view.visible = false;
 const vm = (geo, c, x, y, z, rx = 0) => { const m = mesh(geo, c, x, y, z, view); m.rotation.x = rx; return m; };
@@ -39,16 +59,16 @@ let yaw = 0, yawT = 0, pitch = 0, pitchT = 0, bobT = 0;
 
 // ---- creature builders ----
 function makeChicken(col) {
-  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const g = new THREE.Group(), model = new THREE.Group(), body = new THREE.Group(), head = new THREE.Group(); model.scale.setScalar(.65); g.add(model); model.add(body); body.add(head);
   mesh(new THREE.SphereGeometry(.9, 8, 6), col, 0, 1.3, 0, body).scale.set(1, .95, 1.15);
-  mesh(new THREE.SphereGeometry(.5, 8, 6), col, 0, 2.2, .6, body);
-  mesh(new THREE.ConeGeometry(.2, .5, 4), '#ff9a2e', 0, 2.15, 1.2, body).rotation.x = Math.PI / 2;
-  mesh(new THREE.BoxGeometry(.18, .35, .4), '#e8456b', 0, 2.8, .55, body);
-  [-1, 1].forEach(s => { mesh(new THREE.SphereGeometry(.09, 6, 4), '#2b1d4a', s * .27, 2.35, 1.0, body); mesh(new THREE.BoxGeometry(.3, .07, .08), '#2b1d4a', s * .27, 2.55, 1.0, body).rotation.z = s * .5; });
+  mesh(new THREE.SphereGeometry(.5, 8, 6), col, 0, 2.2, .6, head);
+  mesh(new THREE.ConeGeometry(.2, .5, 4), '#ff9a2e', 0, 2.15, 1.2, head).rotation.x = Math.PI / 2;
+  mesh(new THREE.BoxGeometry(.18, .35, .4), '#e8456b', 0, 2.8, .55, head);
+  [-1, 1].forEach(s => { mesh(new THREE.SphereGeometry(.09, 6, 4), '#2b1d4a', s * .27, 2.35, 1.0, head); mesh(new THREE.BoxGeometry(.3, .07, .08), '#2b1d4a', s * .27, 2.55, 1.0, head).rotation.z = s * .5; });
   mesh(new THREE.ConeGeometry(.35, .8, 4), col, 0, 1.6, -1.1, body).rotation.x = -2;
   const wings = [-1, 1].map(s => { const w = mesh(new THREE.BoxGeometry(.15, .6, .9), col, s * .95, 1.4, 0, body); w.userData.s = s; return w; });
-  const legs = [-1, 1].map(s => mesh(new THREE.CylinderGeometry(.07, .07, .6, 5), '#ff9a2e', s * .35, .3, 0, g));
-  scene.add(g); return { g, body, wings, legs, col, hy: 1.5, hr: 1.2 };
+  const legs = [-1, 1].map(s => mesh(new THREE.CylinderGeometry(.07, .07, .6, 5), '#ff9a2e', s * .35, .3, 0, model));
+  scene.add(g); return { g, body, head, wings, legs, col, hy: .98, hr: .85 };
 }
 function makeFox() {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body); const O = '#e8742a', D = '#3a2418';
@@ -118,32 +138,34 @@ function endGame(win) {
 function spawnEnemy() {
   const fox = MODE().id === 'fox', boss = !fox && wave === WAVES && !bossed; bossed = bossed || boss;
   const parts = fox ? makeFox() : makeChicken(boss ? '#7a1f1f' : EN_COLS[Math.floor(Math.random() * EN_COLS.length)]);
-  const size = boss ? 2.2 : fox ? 1 : rnd(1, 1.25);
-  const e = Object.assign(parts, { fox, boss, size, hp: fox ? (wave >= 4 ? 3 : 2) : boss ? 14 : 2 + Math.floor(wave / 2), speed: (fox ? 6.5 : 4.8) + wave * .35 + rnd(0, .8), vx: 0, vz: 0, vy: 0, face: 0, stun: 0, cool: 0, flash: 0 });
+  const size = boss ? 2.6 : fox ? 1 : rnd(.95, 1.2);
+  const e = Object.assign(parts, { fox, boss, size, hp: fox ? (wave >= 4 ? 3 : 2) : boss ? 14 : 2 + Math.floor(wave / 2), speed: (fox ? 6.5 : 4.8) + wave * .35 + rnd(0, .8), vx: 0, vz: 0, vy: 0, face: 0, stun: 0, cool: 0, flash: 0, ph: rnd(0, 6), hopT: rnd(0, 1), peck: 0 });
   let x, z, k = 0;
   do { const a = rnd(0, 7), r = R - 3 - rnd(0, 4); x = Math.cos(a) * r; z = Math.sin(a) * r; }
-  while (k++ < 15 && (posts.some(o => Math.hypot(x - o.x, z - o.z) < o.r + 1.5) || Math.hypot(x - player.g.position.x, z - player.g.position.z) < 20));
+  while (k++ < 15 && (blocked(x, z, 1.5) || Math.hypot(x - player.g.position.x, z - player.g.position.z) < 20));
   e.g.position.set(x, 0, z); e.g.scale.setScalar(size); enemies.push(e);
 }
-function steer(e, tx, tz, dt) {   // zombie-style: run straight at the target, slide around obstacles, shake loose if stuck
+function steer(e, tx, tz, dt) {   // zombie-style: run at the target, slide around obstacles, shake loose if stuck, smooth the turns
   const p = e.g.position; let dx = tx - p.x, dz = tz - p.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; let sx = dx, sz = dz;
+  if (!e.fox && l > 5) { const w = Math.sin(time * 1.1 + e.ph) * Math.min(3.5, l * .22); sx += -dz * w / l * 1.5; sz += dx * w / l * 1.5; }   // weave so the flock doesn't conga-line
   for (const o of posts) {
-    const ax = p.x - o.x, az = p.z - o.z, d = Math.hypot(ax, az) || .01, lim = o.r + 2.5 * e.size;
-    if (d < lim) { const w = (lim - d) / lim, nx = ax / d, nz = az / d, s = (dx * -nz + dz * nx) >= 0 ? 1 : -1; sx += nx * w * 1.2 - nz * s * w * 1.8; sz += nz * w * 1.2 + nx * s * w * 1.8; }
+    const [nx, nz, dd] = sep(o, p.x, p.z), lim = 1.8 * e.size;
+    if (dd < lim) { const w = (lim - dd) / lim, s = (dx * -nz + dz * nx) >= 0 ? 1 : -1; sx += nx * w * 1.2 - nz * s * w * 1.8; sz += nz * w * 1.2 + nx * s * w * 1.8; }
   }
   e.chk = (e.chk || 0) + dt;
   if (e.chk > .7) { e.chk = 0; const mv = Math.hypot(p.x - (e.lx ?? 1e9), p.z - (e.lz ?? 1e9)); e.lx = p.x; e.lz = p.z; if (mv < .8) { e.side = Math.random() < .5 ? 1 : -1; e.unstuck = .9; } }
   if ((e.unstuck -= dt) > 0) { const q = sx; sx = -sz * e.side; sz = q * e.side; }
-  return [sx, sz];
+  const m = Math.hypot(sx, sz) || 1; sx /= m; sz /= m; e.dx = e.dx ?? sx; e.dz = e.dz ?? sz; const k = Math.min(1, dt * 7); e.dx += (sx - e.dx) * k; e.dz += (sz - e.dz) * k;
+  return [e.dx, e.dz];
 }
 function enemyAI(e, dt) {
   e.stun -= dt; e.cool -= dt; if (e.flash > 0 && (e.flash -= dt) <= 0) glow(e, false);
-  const p = e.g.position, tx = e.fox ? 0 : player.g.position.x, tz = e.fox ? 0 : player.g.position.z, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz), reach = e.fox ? 3.4 : 2.3 * e.size;
-  if (d > reach * .9) { const [ix, iz] = steer(e, tx, tz, dt); moveEntity(e, dt, ix, iz); if (!e.fox && p.y <= .01 && Math.random() < dt * .7) e.vy = 7; }
+  const p = e.g.position, tx = e.fox ? 0 : player.g.position.x, tz = e.fox ? 0 : player.g.position.z, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz), reach = e.fox ? 3.4 : 1.8 * e.size;
+  if (d > reach * .9) { const [ix, iz] = steer(e, tx, tz, dt); e.boost = d < 7 ? 1.25 : 1; moveEntity(e, dt, ix, iz); if (!e.fox && p.y <= .01 && (e.hopT -= dt) <= 0) { e.vy = 5; e.hopT = rnd(.7, 1.4); } }
   else {
     moveEntity(e, dt, 0, 0); e.face = Math.atan2(dx, dz);
     if (e.fox) { if (e.stun <= 0) { egg.hp -= FOX_DPS * dt; egg.flash = .1; if (Math.random() < dt * 3) sfx('egg'); } }
-    else if (e.cool <= 0 && Math.abs(player.g.position.y - p.y) < 2.2) { e.cool = .9; hurtPlayer(7 * (e.boss ? 2 : 1), dx / (d || 1), dz / (d || 1)); e.squash = -.4; }
+    else if (e.cool <= 0 && Math.abs(player.g.position.y - p.y) < 2.2) { e.cool = .9; hurtPlayer(7 * (e.boss ? 2 : 1), dx / (d || 1), dz / (d || 1)); e.squash = -.2; e.peck = .28; }
   }
 }
 function hurtPlayer(n, nx, nz) { player.hp -= n; player.safe = 0; hurtT = .4; player.vx += nx * 7; player.vz += nz * 7; sfx('hurt'); if (player.hp <= 0) endGame(false); }
@@ -160,14 +182,11 @@ function fire() {
   const cp = Math.cos(pitch), sp_ = Math.sin(pitch), sy = Math.sin(yaw), cy = Math.cos(yaw);
   const dir = [-sy * cp, sp_, -cy * cp], right = [cy, 0, -sy], up = [sy * sp_, cp, cy * sp_], a = rnd(0, 6.283), rr = Math.sqrt(Math.random()) * spread;
   let d = dir.map((v, i) => v + right[i] * Math.cos(a) * rr + up[i] * Math.sin(a) * rr); const l = Math.hypot(...d); d = d.map(v => v / l);
-  const o = [p.x, p.y + 1.7 * player.size, p.z];
+  const o = [p.x, p.y + EYE * player.size, p.z];
   let tEnd = Math.min(W.range, d[1] < 0 ? -o[1] / d[1] : 1e9), tHit = 1e9, target = null;
-  for (const ob of posts) {   // buildings and trees stop bullets
-    const ox = o[0] - ob.x, oz = o[2] - ob.z, A = d[0] * d[0] + d[2] * d[2], B = ox * d[0] + oz * d[2], C = ox * ox + oz * oz - ob.r * ob.r, D = B * B - A * C;
-    if (A > 1e-6 && D >= 0) { const t = (-B - Math.sqrt(D)) / A; if (t > 0 && t < tEnd && o[1] + d[1] * t < ob.h) tEnd = t; }
-  }
+  for (const ob of posts) { const t = rayObs(ob, o, d); if (t > 0 && t < tEnd && o[1] + d[1] * t < ob.h) tEnd = t; }   // buildings, fences, trees stop bullets
   for (const e of enemies) {
-    const c = [e.g.position.x, e.g.position.y + e.hy * e.size, e.g.position.z], r = e.hr * e.size, oc = [c[0] - o[0], c[1] - o[1], c[2] - o[2]];
+    const c = [e.g.position.x, e.g.position.y + e.hy * e.size, e.g.position.z], r = e.hr * e.size + .15, oc = [c[0] - o[0], c[1] - o[1], c[2] - o[2]];
     const t = oc[0] * d[0] + oc[1] * d[1] + oc[2] * d[2], dist2 = oc[0] ** 2 + oc[1] ** 2 + oc[2] ** 2 - t * t;
     if (t > 0 && dist2 < r * r) { const th = t - Math.sqrt(r * r - dist2); if (th < tHit && th < tEnd) { tHit = Math.max(th, 0); target = e; } }
   }
@@ -188,16 +207,16 @@ function fire() {
 function moveEntity(c, dt, ix, iz) {
   const p = c.g.position, grounded = p.y <= 0.001;
   if ((ix || iz) && c.stun <= 0) {
-    const l = Math.hypot(ix, iz), sp = c.speed * (c.running ? 1.6 : 1); ix /= l; iz /= l; const k = Math.min(1, dt * (grounded ? 10 : 4));
+    const l = Math.hypot(ix, iz), sp = c.speed * (c.running ? 1.6 : 1) * (c.boost || 1); ix /= l; iz /= l; const k = Math.min(1, dt * (grounded ? 10 : 4));
     c.vx += (ix * sp - c.vx) * k; c.vz += (iz * sp - c.vz) * k; c.face = Math.atan2(ix, iz);
   } else { const f = 1 - Math.min(1, dt * (grounded ? 6 : .5)); c.vx *= f; c.vz *= f; }
   c.vy -= 30 * dt; p.x += c.vx * dt; p.z += c.vz * dt; p.y += c.vy * dt;
   if (p.y <= 0) { if (c.vy < -6) c.squash = .35; p.y = 0; c.vy = 0; }
   const r = Math.hypot(p.x, p.z), lim = R - c.size;
   if (r > lim) { p.x *= lim / r; p.z *= lim / r; c.vx *= -.4; c.vz *= -.4; }
-  posts.forEach(o => {
-    const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz) || .01, m = o.r + .8 * c.size;
-    if (d < m && p.y < o.h) { p.x = o.x + dx / d * m; p.z = o.z + dz / d * m; c.vx += dx / d * 3; c.vz += dz / d * 3; }
+  posts.forEach(o => {   // push out of anything solid and slide along it
+    if (p.y >= o.h) return; const [nx, nz, d] = sep(o, p.x, p.z), m = .6 * c.size;
+    if (d < m) { p.x += nx * (m - d); p.z += nz * (m - d); const vn = c.vx * nx + c.vz * nz; if (vn < 0) { c.vx -= vn * nx; c.vz -= vn * nz; } }
   });
 }
 
@@ -214,7 +233,7 @@ function update(dt, t) {
   // enemies
   for (const e of [...enemies]) enemyAI(e, dt);
   for (let i = 0; i < enemies.length; i++) for (let j = i + 1; j < enemies.length; j++) {
-    const a = enemies[i], b = enemies[j], dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z, d = Math.hypot(dx, dz) || .01, m = 1.3 * (a.size + b.size) / 2;
+    const a = enemies[i], b = enemies[j], dx = b.g.position.x - a.g.position.x, dz = b.g.position.z - a.g.position.z, d = Math.hypot(dx, dz) || .01, m = 1.0 * (a.size + b.size) / 2;
     if (d < m) { const k = (m - d) / 2 / d; a.g.position.x -= dx * k; a.g.position.z -= dz * k; b.g.position.x += dx * k; b.g.position.z += dz * k; }
   }
   // waves
@@ -237,22 +256,24 @@ function fpsCamera(dt, t) {
   const k = Math.min(1, dt * 30); yaw += (yawT - yaw) * k; pitch += (pitchT - pitch) * k;
   const p = player.g.position, sp = Math.hypot(player.vx, player.vz), ground = p.y <= .01, amp = ground ? Math.min(1, sp / 9) : 0, hz = hurtT > 0 ? 1 : 0;
   if (ground) bobT += dt * sp * 1.4;
-  camera.position.set(p.x, p.y + 1.7 * player.size + Math.sin(bobT * 2) * .09 * amp, p.z);
+  camera.position.set(p.x, p.y + EYE * player.size + Math.sin(bobT * 2) * .09 * amp, p.z);
   camera.rotation.set(pitch + hz * Math.sin(t * 30) * .06, yaw, Math.sin(bobT) * .025 * amp + hz * Math.sin(t * 22) * .08);
-  camera.fov += ((player.running && sp > 4 ? 80 : 70) - camera.fov) * Math.min(1, dt * 6); camera.updateProjectionMatrix();
+  camera.fov += ((player.running && sp > 4 ? 86 : 74) - camera.fov) * Math.min(1, dt * 6); camera.updateProjectionMatrix();
   view.position.z = kick * .15; view.rotation.x = kick * .12; muzzle.visible = flashT > 0;
 }
 
 // ---- animation ----
 function animate(t, dt) {
   [...enemies, menuC].forEach(c => {
-    if (!c) return; const sp = Math.hypot(c.vx, c.vz), air = c.g.position.y > .05;
-    c.g.rotation.y += Math.atan2(Math.sin(c.face - c.g.rotation.y), Math.cos(c.face - c.g.rotation.y)) * Math.min(1, dt * 14);
-    c.squash = (c.squash || 0) * (1 - Math.min(1, dt * 9)); const run = Math.min(1, sp / 7);
-    c.body.position.y = air ? 0 : Math.abs(Math.sin(t * 16 + (c.size || 1))) * run * .25; c.body.scale.set(1 + c.squash * .5, 1 - c.squash, 1 + c.squash * .5);
-    c.body.rotation.z = c.stun > 0 ? Math.sin(t * 40) * .3 : Math.sin(t * 16) * .08 * run; c.body.rotation.x = c.fox ? 0 : Math.min(.3, sp * .03);
-    c.wings.forEach(w => w.rotation.z = w.userData.s * (air ? Math.sin(t * 35) * .9 + .6 : sp > 1 ? Math.sin(t * 20) * .4 + .5 : .15));
-    c.legs.forEach((l, i) => { l.rotation.x = Math.sin(t * 16 + i * Math.PI) * .9 * run; });
+    if (!c) return; const sp = Math.hypot(c.vx, c.vz), air = c.g.position.y > .05, run = Math.min(1, sp / 6);
+    c.g.rotation.y += Math.atan2(Math.sin(c.face - c.g.rotation.y), Math.cos(c.face - c.g.rotation.y)) * Math.min(1, dt * 12);
+    c.ph = (c.ph || 0) + (air ? 0 : dt * (5 + sp * 1.7)); c.squash = (c.squash || 0) * (1 - Math.min(1, dt * 9));
+    const pk = Math.max(0, c.peck || 0), pa = pk > 0 ? Math.sin((1 - pk / .28) * Math.PI) : 0; c.peck = pk - dt;   // peck lunge
+    c.body.position.y = air ? 0 : Math.abs(Math.sin(c.ph)) * run * .12; c.body.position.z = pa * .5; c.body.scale.set(1 + c.squash * .5, 1 - c.squash, 1 + c.squash * .5);
+    c.body.rotation.z = c.stun > 0 ? Math.sin(t * 40) * .3 : Math.sin(c.ph) * .07 * run; c.body.rotation.x = c.fox ? 0 : Math.min(.35, sp * .035) + pa * .6;
+    if (c.head) c.head.position.z = Math.sin(c.ph * 2) * .12 * run;
+    c.wings.forEach(w => w.rotation.z = w.userData.s * (air ? Math.sin(t * 35) * .9 + .6 : sp > 1 ? .5 + Math.sin(c.ph * 2) * .25 * run : .15));
+    c.legs.forEach((l, i) => { l.rotation.x = Math.sin(c.ph + i * Math.PI) * 1.1 * run; });
   });
 }
 
@@ -272,7 +293,7 @@ function menuUI() {
   mk('modes', MODES, modeI, i => modeI = i); mk('maps', MAPS, mapI, i => { if (i !== mapI) { mapI = i; loadMap(i); } });
   $('desc').textContent = MODES[modeI].desc + ' — ' + MAPS[mapI].desc;
 }
-function menuChicken() { clearAll(); menuC = Object.assign(makeChicken(myColor), { vx: 0, vz: 0, vy: 0, size: 1, face: 1, stun: 0 }); menuC.g.position.set(5, 0, 6); }
+function menuChicken() { clearAll(); menuC = Object.assign(makeChicken(myColor), { vx: 0, vz: 0, vy: 0, size: 1, face: 1, stun: 0 }); menuC.g.position.set(5, 0, 6); menuC.g.scale.setScalar(1.8); }
 $('swatches').innerHTML = COLORS.map(c => `<div class="sw ${c === myColor ? 'sel' : ''}" role="button" tabindex="0" style="background:${c}" data-c="${c}"></div>`).join('');
 $('swatches').onclick = e => { const c = e.target.dataset.c; if (!c) return; myColor = c; document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', s.dataset.c === c)); menuChicken(); };
 $('play').onclick = startGame; $('again').onclick = startGame;
@@ -290,7 +311,7 @@ let last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000), t = now / 1000; last = now;
   if (state === 'play') { update(dt, t); if (state === 'play') fpsCamera(dt, t); }
-  else if (state === 'menu' && menuC) { menuC.g.position.set(5, Math.max(0, Math.sin(t * 3) * 1.4), 6); menuC.face = Math.sin(t) * 1.2 + 1; camera.fov = 70; camera.position.set(-6 + Math.sin(t * .2) * 3, 8, 22); camera.lookAt(4, 1.5, 4); }
+  else if (state === 'menu' && menuC) { menuC.g.position.set(5, Math.max(0, Math.sin(t * 3) * 1.4), 6); menuC.face = Math.sin(t) * 1.2 + 1; camera.fov = 74; camera.position.set(-6 + Math.sin(t * .2) * 3, 8, 22); camera.lookAt(4, 1.5, 4); }
   animate(t, dt); renderer.render(scene, camera);
 }
 requestAnimationFrame(loop);
