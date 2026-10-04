@@ -37,3 +37,19 @@ button:focus-visible{outline:4px solid var(--beet);outline-offset:3px}
 #cross::before,#cross::after{content:"";position:absolute;background:var(--cream);box-shadow:0 0 0 2px var(--ink);border-radius:2px}
 #cross::before{left:6px;top:0;width:2px;height:14px}#cross::after{top:6px;left:0;height:2px;width:14px}
 #hint{position:absolute;bottom:24px;width:100%;text-align:center;font-size:20px;color:var(--cream);text-shadow:2px 2px 0 var(--ink)}
+.label{font-weight:900;font-size:14px;text-transform:uppercase;letter-spacing:.12em;margin:4px 0 -6px}
+.opts{display:flex;gap:10px;flex-wrap:wrap}
+.opt{font-size:18px;padding:8px 18px;border-radius:12px;background:var(--cream);box-shadow:0 4px 0 var(--ink)}
+.opt.sel{background:var(--yolk);transform:translateY(2px);box-shadow:0 2px 0 var(--ink)}
+#desc{max-width:440px;text-align:left;font-weight:900;margin:0;min-height:44px}
+.bar{position:absolute;height:26px;border:4px solid var(--ink);border-radius:13px;background:rgba(43,29,74,.55);overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:#6bdc6b;transition:width .12s}
+.bar span{position:absolute;inset:0;text-align:center;color:#fff;font-size:14px;line-height:19px;text-shadow:1px 1px 0 var(--ink)}
+#hpbar{left:16px;bottom:18px;width:260px}
+#eggbar{left:50%;top:62px;width:340px;transform:translateX(-50%)}#eggbar i{background:var(--yolk)}
+#score{top:62px;left:12px}
+#mark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:30px;color:#fff;opacity:0;text-shadow:0 0 0 var(--ink),2px 2px 0 var(--ink)}
+#mark.hit{animation:pop .18s}#mark.kill{color:var(--beet);animation:pop .45s;font-size:46px}
+@keyframes pop{0%{opacity:1;transform:translate(-50%,-50%) scale(1.5)}100%{opacity:0;transform:translate(-50%,-50%) scale(.9)}}
+#hurt{position:absolute;inset:0;box-shadow:inset 0 0 140px 40px rgba(232,69,107,.85);opacity:0;transition:opacity .35s}
+#toast{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-family:"Bagel Fat One","Arial Black",sans-serif;font-size:30px;color:var(--yolk);text-shadow:3px 3px 0 var(--ink);opacity:0;transition:opacity .2s;white-space:nowrap}

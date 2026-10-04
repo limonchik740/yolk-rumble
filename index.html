@@ -12,30 +12,36 @@
 
 <section id="menu" class="screen">
   <h1>Yolk<br>Rumble</h1>
-  <p class="tag">Grab eggs. Blast rivals. Be the last cluck standing.</p>
-  <div class="swatches" id="swatches"></div>
-  <button class="big" id="playSolo">Solo vs Bots</button>
-  <button class="big off" disabled>Online (coming soon)</button>
-  <p class="help"><b>Mouse</b> look &nbsp; <b>WASD</b> move &nbsp; <b>Shift</b> run &nbsp; <b>Space</b> jump &nbsp; <b>Click / F</b> fire egg blaster</p>
+  <div class="label">Game mode</div><div class="opts" id="modes"></div>
+  <div class="label">Map</div><div class="opts" id="maps"></div>
+  <p id="desc"></p>
+  <div class="label">Your chicken</div><div class="swatches" id="swatches"></div>
+  <button class="big" id="play">Play</button>
+  <p class="help"><b>Mouse</b> look &nbsp; <b>WASD</b> move &nbsp; <b>Shift</b> run &nbsp; <b>Space</b> jump &nbsp; <b>Hold click / F</b> fire egg blaster</p>
 </section>
 
 <div id="hud" class="hidden">
   <div id="info"></div>
+  <div id="eggbar" class="bar hidden"><i></i><span></span></div>
   <div id="score"></div>
+  <div id="hpbar" class="bar"><i></i><span></span></div>
   <div id="banner"></div>
-  <div id="cross"></div>
+  <div id="toast"></div>
+  <div id="hurt"></div>
+  <div id="cross"><b id="mark">✕</b></div>
   <div id="hint">Click the game to look around (Esc frees your mouse)</div>
 </div>
 
 <section id="over" class="screen hidden">
   <h2 id="overTitle"></h2>
   <ol id="board"></ol>
-  <button class="big" id="next">Next round</button>
+  <button class="big" id="again">Play again</button>
   <button class="small" id="toMenu">Main menu</button>
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="farm.js"></script>
+<script src="maps.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
