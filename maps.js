@@ -13,7 +13,7 @@ function buildOrchard(g, R) {
   inst(new THREE.IcosahedronGeometry(1.7, 0), '#ffffff', trees.length, (d, i) => d.position.set(trees[i][0], 6.6, trees[i][1]));
   // cabin
   add(new THREE.BoxGeometry(10, 5, 8), '#8a5a3a', 30, 2.5, -30); [1, -1].forEach(s => add(new THREE.BoxGeometry(6.4, .5, 9), '#ffffff', 30 - s * 2.6, 5.9, -30, 0, 0, s * .6)); add(new THREE.BoxGeometry(1.2, 3, 1.2), '#7a7a80', 33, 6.5, -30); add(new THREE.BoxGeometry(1.8, 3, .2), '#4d3522', 30, 1.5, -25.9);
-  obs.push({ x: 28, z: -30, r: 5, h: 99 }, { x: 32, z: -30, r: 5, h: 99 });
+  obs.push({ x: 30, z: -30, hw: 5.2, hd: 4.2, h: 99 });
   // snowmen
   [[8, -10], [-10, -7], [-4, 22]].forEach(([x, z]) => { add(new THREE.SphereGeometry(1.2, 8, 6), '#fff', x, 1.2, z); add(new THREE.SphereGeometry(.9, 8, 6), '#fff', x, 2.9, z); add(new THREE.SphereGeometry(.6, 8, 6), '#fff', x, 4, z); add(new THREE.ConeGeometry(.12, .6, 5), '#ff8a3d', x, 4, z + .7, PI / 2); add(new THREE.CylinderGeometry(.5, .5, .6, 8), '#222', x, 4.7, z); obs.push({ x, z, r: 1.3, h: 4 }); });
   inst(new THREE.DodecahedronGeometry(.8, 0), '#aab6c4', 32, (d, i) => { const a = i * 2.4, r = 14 + (i * 7) % 28; d.position.set(Math.cos(a) * r, .3, Math.sin(a) * r); d.scale.set(1 + i % 3 * .4, .6, 1 + i % 2 * .5); });
